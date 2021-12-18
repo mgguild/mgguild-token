@@ -678,7 +678,7 @@ contract MGG is Ownable, Pausable {
         require(!isBlackListed[src]);
         address spender = msg.sender;
         uint96 spenderAllowance = allowances[src][spender];
-        uint96 amount = safe96(rawAmount, "MGG::approve: amount exceeds 96 bits");
+        uint96 amount = safe96(rawAmount, "MGG::transferFrom: amount exceeds 96 bits");
 
         if (spender != src && spenderAllowance != uint96(-1)) {
             uint96 newAllowance = sub96(spenderAllowance, amount, "MGG::transferFrom: transfer amount exceeds spender allowance");
@@ -796,14 +796,14 @@ contract MGG is Ownable, Pausable {
             if (srcRep != address(0)) {
                 uint32 srcRepNum = numCheckpoints[srcRep];
                 uint96 srcRepOld = srcRepNum > 0 ? checkpoints[srcRep][srcRepNum - 1].votes : 0;
-                uint96 srcRepNew = sub96(srcRepOld, amount, "MGG::_moveVotes: vote amount underflows");
+                uint96 srcRepNew = sub96(srcRepOld, amount, "MGG::_moveDelegates: vote amount underflows");
                 _writeCheckpoint(srcRep, srcRepNum, srcRepOld, srcRepNew);
             }
 
             if (dstRep != address(0)) {
                 uint32 dstRepNum = numCheckpoints[dstRep];
                 uint96 dstRepOld = dstRepNum > 0 ? checkpoints[dstRep][dstRepNum - 1].votes : 0;
-                uint96 dstRepNew = add96(dstRepOld, amount, "MGG::_moveVotes: vote amount overflows");
+                uint96 dstRepNew = add96(dstRepOld, amount, "MGG::_moveDelegates: vote amount overflows");
                 _writeCheckpoint(dstRep, dstRepNum, dstRepOld, dstRepNew);
             }
         }
