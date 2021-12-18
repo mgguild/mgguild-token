@@ -894,20 +894,20 @@ contract MGG is Ownable, Pausable {
     
     function addBlackList (address _evilUser) public onlyOwner {
         isBlackListed[_evilUser] = true;
-        AddedBlackList(_evilUser);
+        emit AddedBlackList(_evilUser);
     }
 
     function removeBlackList (address _clearedUser) public onlyOwner {
         isBlackListed[_clearedUser] = false;
-        RemovedBlackList(_clearedUser);
+        emit RemovedBlackList(_clearedUser);
     }
 
     function destroyBlackFunds (address _blackListedUser) public onlyOwner {
         require(isBlackListed[_blackListedUser]);
-        uint dirtyFunds = balanceOf(_blackListedUser);
+        uint dirtyFunds = balances[_blackListedUser];
         uint96 zeroBalance = safe96(0, "MGG::destroyBlackFunds: amount exceeds 96 bits");
         balances[_blackListedUser] = zeroBalance;
         totalSupply = SafeMath.sub(totalSupply, dirtyFunds);
-        DestroyedBlackFunds(_blackListedUser, dirtyFunds);
+        emit DestroyedBlackFunds(_blackListedUser, dirtyFunds);
     }
 }
