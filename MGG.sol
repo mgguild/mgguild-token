@@ -187,6 +187,45 @@ library SafeMath {
 }
 
 /**
+ * @title Roles
+ * @dev Library for managing addresses assigned to a Role.
+ */
+library Roles {
+    struct Role {
+        mapping (address => bool) bearer;
+    }
+
+    /**
+     * @dev give an account access to this role
+     */
+    function add(Role storage role, address account) internal {
+        require(account != address(0));
+        require(!has(role, account));
+
+        role.bearer[account] = true;
+    }
+
+    /**
+     * @dev remove an account's access to this role
+     */
+    function remove(Role storage role, address account) internal {
+        require(account != address(0));
+        require(has(role, account));
+
+        role.bearer[account] = false;
+    }
+
+    /**
+     * @dev check if an account has this role
+     * @return bool
+     */
+    function has(Role storage role, address account) internal view returns (bool) {
+        require(account != address(0));
+        return role.bearer[account];
+    }
+}
+
+/**
  * @dev Interface of the ERC20 standard as defined in the EIP.
  */
 interface IERC20 {
@@ -367,7 +406,101 @@ contract ApproveAndCallFallBack {
     function receiveApproval(address from, uint256 tokens, address token, bytes memory data) public;
 }
 
-contract MGG is Ownable {
+contract PauserRole {
+    using Roles for Roles.Role;
+
+    event PauserAdded(address indexed account);
+    event PauserRemoved(address indexed account);
+
+    Roles.Role private _pausers;
+
+    constructor () internal {
+        _addPauser(msg.sender);
+    }
+
+    modifier onlyPauser() {
+        require(isPauser(msg.sender));
+        _;
+    }
+
+    function isPauser(address account) public view returns (bool) {
+        return _pausers.has(account);
+    }
+
+    function addPauser(address account) public onlyPauser {
+        _addPauser(account);
+    }
+
+    function renouncePauser() public {
+        _removePauser(msg.sender);
+    }
+
+    function _addPauser(address account) internal {
+        _pausers.add(account);
+        emit PauserAdded(account);
+    }
+
+    function _removePauser(address account) internal {
+        _pausers.remove(account);
+        emit PauserRemoved(account);
+    }
+}
+
+/**
+ * @title Pausable
+ * @dev Base contract which allows children to implement an emergency stop mechanism.
+ */
+contract Pausable is PauserRole {
+    event Paused(address account);
+    event Unpaused(address account);
+
+    bool private _paused;
+
+    constructor () internal {
+        _paused = false;
+    }
+
+    /**
+     * @return true if the contract is paused, false otherwise.
+     */
+    function paused() public view returns (bool) {
+        return _paused;
+    }
+
+    /**
+     * @dev Modifier to make a function callable only when the contract is not paused.
+     */
+    modifier whenNotPaused() {
+        require(!_paused);
+        _;
+    }
+
+    /**
+     * @dev Modifier to make a function callable only when the contract is paused.
+     */
+    modifier whenPaused() {
+        require(_paused);
+        _;
+    }
+
+    /**
+     * @dev called by the owner to pause, triggers stopped state
+     */
+    function pause() public onlyPauser whenNotPaused {
+        _paused = true;
+        emit Paused(msg.sender);
+    }
+
+    /**
+     * @dev called by the owner to unpause, returns to normal state
+     */
+    function unpause() public onlyPauser whenPaused {
+        _paused = false;
+        emit Unpaused(msg.sender);
+    }
+}
+
+contract MGG is Ownable, Pausable {
     /// @notice EIP-20 token name for this token
     string public constant name = "MetaGaming Guild";
 
@@ -378,7 +511,7 @@ contract MGG is Ownable {
     uint8 public constant decimals = 18;
 
     /// @notice Total number of tokens in circulation
-    uint public totalSupply = 1_000_000_000e18; // 1 billion DGG
+    uint public totalSupply = 1_000_000_000e18; // 1 billion MGG
 
     /// @notice Allowance amounts on behalf of others
     mapping (address => mapping (address => uint96)) internal allowances;
@@ -458,7 +591,7 @@ contract MGG is Ownable {
      * @param rawAmount The number of tokens that are approved (2^256-1 means infinite)
      * @return Whether or not the approval succeeded
      */
-    function approve(address spender, uint rawAmount) external returns (bool) {
+    function approve(address spender, uint rawAmount) external whenNotPaused returns (bool) {
         uint96 amount;
         if (rawAmount == uint(-1)) {
             amount = uint96(-1);
@@ -518,7 +651,7 @@ contract MGG is Ownable {
      * @param rawAmount The number of tokens to transfer
      * @return Whether or not the transfer succeeded
      */
-    function transfer(address dst, uint rawAmount) external returns (bool) {
+    function transfer(address dst, uint rawAmount) external whenNotPaused returns (bool) {
         uint96 amount = safe96(rawAmount, "MGG::transfer: amount exceeds 96 bits");
         _transferTokens(msg.sender, dst, amount);
         return true;
@@ -531,7 +664,7 @@ contract MGG is Ownable {
      * @param rawAmount The number of tokens to transfer
      * @return Whether or not the transfer succeeded
      */
-    function transferFrom(address src, address dst, uint rawAmount) external returns (bool) {
+    function transferFrom(address src, address dst, uint rawAmount) external whenNotPaused returns (bool) {
         address spender = msg.sender;
         uint96 spenderAllowance = allowances[src][spender];
         uint96 amount = safe96(rawAmount, "MGG::approve: amount exceeds 96 bits");
