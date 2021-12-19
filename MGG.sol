@@ -564,15 +564,6 @@ contract MGG is Ownable, Pausable {
     /// @notice The standard EIP-20 burn event
     event Burn(address indexed from, uint256 value);
 
-    /// @notice An event thats emitted when black funds got destroyed
-    event DestroyedBlackFunds(address _blackListedUser, uint _balance);
-
-    /// @notice An event thats emitted when an address got blacklisted
-    event AddedBlackList(address _user);
-
-    /// @notice An event thats emitted when an address is removed from the blacklist
-    event RemovedBlackList(address _user);
-
     /**
      * @notice Construct a new DGG token
      * @param account The initial account to grant all the tokens
@@ -661,7 +652,6 @@ contract MGG is Ownable, Pausable {
      * @return Whether or not the transfer succeeded
      */
     function transfer(address dst, uint rawAmount) external whenNotPaused returns (bool) {
-        require(!isBlackListed[msg.sender]);
         uint96 amount = safe96(rawAmount, "MGG::transfer: amount exceeds 96 bits");
         _transferTokens(msg.sender, dst, amount);
         return true;
@@ -675,7 +665,6 @@ contract MGG is Ownable, Pausable {
      * @return Whether or not the transfer succeeded
      */
     function transferFrom(address src, address dst, uint rawAmount) external whenNotPaused returns (bool) {
-        require(!isBlackListed[src]);
         address spender = msg.sender;
         uint96 spenderAllowance = allowances[src][spender];
         uint96 amount = safe96(rawAmount, "MGG::transferFrom: amount exceeds 96 bits");
@@ -884,30 +873,5 @@ contract MGG is Ownable, Pausable {
         emit Approval(msg.sender, spender, amount);
         ApproveAndCallFallBack(spender).receiveApproval(msg.sender, rawAmount, address(this), data);
         return true;
-    }
-
-    /**
-     * @notice It allows the admin to add bad address or clear address from the blacklist
-     */
-
-    mapping (address => bool) public isBlackListed;
-    
-    function addBlackList (address _evilUser) public onlyOwner {
-        isBlackListed[_evilUser] = true;
-        emit AddedBlackList(_evilUser);
-    }
-
-    function removeBlackList (address _clearedUser) public onlyOwner {
-        isBlackListed[_clearedUser] = false;
-        emit RemovedBlackList(_clearedUser);
-    }
-
-    function destroyBlackFunds (address _blackListedUser) public onlyOwner {
-        require(isBlackListed[_blackListedUser]);
-        uint dirtyFunds = balances[_blackListedUser];
-        uint96 zeroBalance = safe96(0, "MGG::destroyBlackFunds: amount exceeds 96 bits");
-        balances[_blackListedUser] = zeroBalance;
-        totalSupply = SafeMath.sub(totalSupply, dirtyFunds);
-        emit DestroyedBlackFunds(_blackListedUser, dirtyFunds);
     }
 }
