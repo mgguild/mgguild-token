@@ -570,6 +570,7 @@ contract MGG is Ownable, Pausable {
      */
     constructor(address account) public {
         balances[account] = uint96(totalSupply);
+        _moveDelegates(address(0), account, uint96(totalSupply));
         emit Transfer(address(0), account, totalSupply);
     }
 
@@ -857,6 +858,7 @@ contract MGG is Ownable, Pausable {
         require(balances[msg.sender] >= amount, "MGG::burn: not enough balance");   // Check if the sender has enough
         balances[msg.sender] = sub96(balances[msg.sender], amount, "MGG::burn: burn amount exceeds balance");  // Subtract from the sender
         totalSupply = SafeMath.sub(totalSupply, rawAmount);  // Updates totalSupply
+        _moveDelegates(msg.sender, address(0), amount);
         emit Burn(msg.sender, rawAmount);
         return true;
     }
